@@ -12,7 +12,7 @@ A shallow neural network (SNN) is able to distinguish NDD cases from controls wi
 --missense or -m : a flag that, when provided, enables the use of gene score features for the missense-specific model
 ```
 
-For the mutation information (-m), coding *de novo* mutations are retrieved from denovo-db (version 1.6.1), consisting of 6,509 individuals with primary phenotypes of autism spectrum disorder (ASD), intellectual disability, developmental disability, and controls. Scores are assigned to coding *de novo* mutation according to the type of non-synonymous mutation present. For likely gene-disruptive (LGD) mutations such as stop, splice, and frameshift mutations, a score of 1 is assigned. For missense mutations, the *PrimateAI* (Sundaram et al. 2018 Nature Genetics) score is used. An example tab-delimited file called *de_novo_mutations.txt* is provided, displaying a sample's ID, the primary phenotype (1 == case, 0 == control), the gene containing a *de novo* mutation, and the score assigned to the mutation. <br />
+For the mutation information (-m), coding *de novo* mutations are retrieved from denovo-db (version 1.6.1), consisting of 6,509 individuals with primary phenotypes of autism spectrum disorder (ASD), intellectual disability, developmental disability, and 1,251 controls. Scores are assigned to coding *de novo* mutation according to the type of non-synonymous mutation present. For likely gene-disruptive (LGD) mutations such as stop, splice, and frameshift mutations, a score of 1 is assigned. For missense mutations, the *PrimateAI* (Sundaram et al. 2018 Nature Genetics) score is used. An example tab-delimited file called *de_novo_mutations.txt* is provided, displaying a sample's ID, the primary phenotype (1 == case, 0 == control), the gene containing a *de novo* mutation, and the score assigned to the mutation. <br />
 
 For the genic constraint and conservation information (-g), pLI, LOEUF, RVIS, and phastCons scores are used describe a gene's relative intolerance to LGD or deleterious mutation and degree of conservation among 99 vertebrates and the human genome. An example tab-delimited file called *lof_metrics.txt* is provided, containing metrics collected by gnomAD (v2.1.1) and RVIS and phastCons values per gene. <br />
 
@@ -36,11 +36,11 @@ To generate ensemble predictions, the following script can be run after output f
 
 ```
 python3 ensemble_prediction.py \
-${output_string}_lgd_individualProb \
-${output_string}_lgd_RandomForest_individualProb \
-${output_string}_lgd_svm_individualProb \
-${output_string}_lgd_logistic_individualProb \
-${output_string}_lgd
+--snn ${output_string}_lgd_individualProb \
+--rf ${output_string}_lgd_RandomForest_individualProb \
+--svm ${output_string}_lgd_svm_individualProb \
+--logistic ${output_string}_lgd_logistic_individualProb \
+--output ${output_string}_lgd
 ```
 
 
