@@ -7,13 +7,13 @@
 
 import pandas as pd
 import numpy as np
-import sys
 from functools import reduce
 from sklearn.metrics import roc_curve, precision_recall_curve
 import seaborn as sns
 from matplotlib import pyplot as plt
 import math
 from scipy import stats
+import argparse
 
 
 def read_prob_file(in_file, type_string):
@@ -73,7 +73,6 @@ def process_coordinate(pair, prob_df, tpr_list, tpr_list_no_snn, type_of_prob, t
     end_index = pair[1]
 
     # the highest probability associated with a control
-    # removed iq from end of get_tpr
     tpr_list, one_set = get_tpr(start_index, end_index, prob_df, type_of_prob, tpr_list)
     tpr_list_no_snn, one_dummy = get_tpr(
         start_index, end_index, prob_df, type_of_prob_no_snn, tpr_list_no_snn)
@@ -310,12 +309,9 @@ def combined_prediction(lgd_prob, miss_prob, out_name):
     common_lgd = lgd_prob[lgd_prob['ids'].isin(common_individuals)].drop(['index'], axis=1)
     common_miss = miss_prob[
         miss_prob['ids'].isin(common_individuals)].drop(['index'], axis=1).drop(['PrimaryPhenotype'], axis=1)
-    # you can drop the custom_prob, rf_prob, svm_prob, log_prob for a smaller dataframe
 
     # join on the run_id and the ids
-    # df_list = [common_lgd, common_lgd.drop(['PrimaryPhenotype'], axis=1)]
     df_list = [common_lgd, common_miss]
-    # TODO if you want to just see the LGD effect, turn common_miss into common_lgd
     df_merged = reduce(lambda left, right: pd.merge(left, right, on=['ids', 'run_id']), df_list)
 
     # from here you should determine the true combo value to return for SNN, RF, SVM, LR
@@ -373,11 +369,20 @@ def get_confidence_interval(t_list_snn, t_list_rf, t_list_svm, t_list_lr, tpr_li
 
 
 def main():
-    custom_file = sys.argv[1]  # individual probability
-    rf_file = sys.argv[2]
-    svm_file = sys.argv[3]
-    log_file = sys.argv[4]
-    out_name = sys.argv[5]
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--snn", "-s", help="SNN LGD-specific predicted probabilities")
+    parser.add_argument("--rf", "-r", help="Random Forest LGD-specific predicted probabilities")
+    parser.add_argument("--svm", "-v", help="SVM LGD-specific predicted probabilities")
+    parser.add_argument("--logistic", "-l", help="Logistic regression LGD-specific predicted probabilities")
+    parser.add_argument("--output", "-o", help="Output string of the format ${output_string}_lgd")
+    args = parser.parse_args()
+
+    custom_file = args.snn
+    rf_file = args.rf
+    svm_file = args.svm
+    log_file = args.logistic
+    out_name = args.output
 
     # these are the missense files
     custom_miss_file = custom_file.replace('lgd', 'miss')

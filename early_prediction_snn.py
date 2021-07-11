@@ -1,9 +1,9 @@
-# custom_lambda.py
+# early_prediction_snn.py
 # maximizes true positives and minimizes false positives, takes as input information from de novo LGD and missense
 # mutation, conservation + constraint. Optimized parameters: lambda of
-# custom loss function based on maximum score estimator, l2 regularizer, batch size
+# custom loss function based on maximum score estimator, l2 regularizer, batch size, neurons in hidden layer
 
-import sys
+import argparse
 import time
 import pandas as pd
 import numpy as np
@@ -209,7 +209,7 @@ def get_tpr_low_fpr(tmp_model, x_train, y_train, test):
     num_cases = prob_cases.shape[0]
     highest_control_prob = prob_controls['probability'].iloc[0]
 
-    # get the number of cases with probability higher than the highest control == red string, case fraction
+    # get the number of cases with probability higher than the highest control, case fraction
     higher_than_control_cases = prob_cases[
                                     prob_cases['probability'] > highest_control_prob].shape[0] / num_cases
 
@@ -231,10 +231,8 @@ def generic_pick_best(
     l_list = [70, 80, 90, 100, 110, 120]  # l
     l2_list = [0.01, 0.001, 0.0001, 0.00001, 0.000001]  # l2
 
-    pick_list = ["batch", "neuron", "custom", "l2"]  # you have to run artificial controls separately
+    pick_list = ["batch", "neuron", "custom", "l2"]
     optimal_dict = {}
-
-    # you must set how many artificial controls are in x_train and y_train, outermost loop
 
     for train, test in folds.split(origin_x_train, origin_y_train):
 
@@ -328,7 +326,7 @@ def mutation_model(
     expression_columns = []
 
     print("Incorporating gene score features: %s" % (time.time() - start_time))
-    if use_four_score == "true":
+    if use_four_score:
         merged_file_scores = full_dot_gene_score(merged_file, gene_to_merge_lgd, expression_columns)
         art_case_scores = full_dot_gene_score(art_case, gene_to_merge_lgd, expression_columns)
         allen_columns = allen_columns + ['pLI', 'oe_lof_upper', 'RVIS', 'phastcons']
@@ -565,10 +563,10 @@ def custom_model_opt_prediction(
     b_batch, b_neuron, b_custom_l, b_l2 = generic_pick_best(
         x_train_optimize, y_train, allen_columns, start_time)
 
-    # write the best parameters to file so that you can make histogram later
-    best_values = "%s\t%s\t%s\t%s\n" % (b_batch, b_custom_l, b_l2, b_neuron)
-    with open("%s_custom_best_parameters.txt" % output_name, 'a') as best_file:
-        best_file.write(best_values)
+    # uncomment if you want to keep track of best parameters over multiple iterations
+    # best_values = "%s\t%s\t%s\t%s\n" % (b_batch, b_custom_l, b_l2, b_neuron)
+    # with open("%s_custom_best_parameters.txt" % output_name, 'a') as best_file:
+    #     best_file.write(best_values)
 
     print("Start prediction phase: %s" % (time.time() - start_time))
     test_prob = second_phase(
@@ -670,14 +668,20 @@ def combined_prediction(lgd_prob, miss_prob, output_name):
 
 
 def main():
-    input_file = sys.argv[
-        1]  # /share/hormozdiarilab/Experiments/Missense_prioritization/missensePrioritization/classification/ssc_ddd_mssng_asc_id_gonl_gul_miss_lgd_approved
-    gene_scores_file = sys.argv[
-        2]  # /share/hormozdiarilab/Experiments/Missense_prioritization/missensePrioritization/classification/gnomad_lof_metrics_approved_format_miss_1
-    output_name = sys.argv[3]
-    use_four_score = sys.argv[4]  # true
-    use_four_score_miss = sys.argv[
-        5]  # /share/hormozdiarilab/Experiments/Missense_prioritization/missensePrioritization/classification/PrimateAI_scores_per_gene.txt
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mutation", "-m", help="Mutation input file")
+    parser.add_argument("--gene", "-g", help="Gene score metrics")
+    parser.add_argument("--output", "-o", help="Desired output string")
+    parser.add_argument("--lgd", "-l", help="Enable gene score features for LGD-specific model", action='store_true')
+    parser.add_argument("--missense", "-m", help="Enable gene score features for missense-specific model",
+                        action='store_true')
+    args = parser.parse_args()
+
+    input_file = args.mutation
+    gene_scores_file = args.gene
+    output_name = args.output
+    use_four_score = args.lgd
+    use_four_score_miss = args.missense
 
     start_time = time.time()
     # you should create a unique_id based off of the time, so that in the aggregated _individualProb file,
@@ -702,6 +706,8 @@ def main():
     # this is for missense
     print("\nStarting missense prediction: %s" % (time.time() - start_time))
     merged_file_miss = merged_file[merged_file['new_score'] != 1].dropna()
+    if not use_four_score:
+        merged_file_miss['new_score'] = 1
     miss_prob, miss_train_prob, m_rf_test_prob, m_svm_test_prob, m_log_test_prob = mutation_model(
         start_time, use_four_score_miss, merged_file_miss,
         art_case, art_case_y, gene_to_merge_lgd, "%s_miss" % output_name, run_id, testing_ids, merged_file_y)
