@@ -669,7 +669,7 @@ def combined_prediction(lgd_prob, miss_prob, output_name):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mutation", "-m", help="Mutation input file")
+    parser.add_argument("--de_novo", "-d", help="De novo mutation input file")
     parser.add_argument("--gene", "-g", help="Gene score metrics")
     parser.add_argument("--output", "-o", help="Desired output string")
     parser.add_argument("--lgd", "-l", help="Enable gene score features for LGD-specific model", action='store_true')
@@ -677,7 +677,7 @@ def main():
                         action='store_true')
     args = parser.parse_args()
 
-    input_file = args.mutation
+    input_file = args.de_novo
     gene_scores_file = args.gene
     output_name = args.output
     use_four_score = args.lgd
