@@ -5,7 +5,7 @@ A shallow neural network (SNN) is able to distinguish NDD cases from controls wi
 ### Input parameters <br />
 
 ```
---mutation or -m : Information on *de novo* non-synonymous coding variation for NDD cases and unaffected controls
+--de_novo or -d : Information on *de novo* non-synonymous coding variation for NDD cases and unaffected controls
 --gene or -g : Gene-associated constraint and conservation information (gene score information)
 --output or -o  : The user provides a desired string ($output_string) used to name output files
 --lgd or -l : a flag that, when provided, enables the use of gene score features for the LGD-specific model
@@ -26,7 +26,7 @@ The SNN's methods are further described in (URL LINK).
 
 ```
 python3 early_prediction_snn.py \
--m de_novo_mutations.txt \
+-d de_novo_mutations.txt \
 -g lof_metrics.txt \
 -o $output_string \
 -l
