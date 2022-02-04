@@ -45,8 +45,11 @@ def process_prob(df):
         previous_coordinate = b_point
     # add the last one which was left out, also get the 'order' of the very last entry from prob_df
     last_order = df['index'].iloc[-1]
-    last_coordinate = breakpoint_list[-1]
-    coordinate_list.append([last_coordinate, last_order])
+    if breakpoint_list:  # there are multiple iterations
+        last_coordinate = breakpoint_list[-1]
+        coordinate_list.append([last_coordinate, last_order])
+    else:  # the list is empty, so there's only 1 iteration
+        coordinate_list = [[1, df.shape[0]]]
     return df, coordinate_list
 
 
@@ -198,6 +201,7 @@ def print_tpr_auc(coordinate_list, df_merged, avg_name, avg_no_snn_name, out_nam
     p_log_list = []
     p_e_list = []
     p_e_no_snn_list = []
+    r_pr_auc = []
 
     for pair in coordinate_list:
         tpr_list_avg, tpr_list_no_snn_avg, one_set, t_list_snn, t_list_rf, t_list_svm, t_list_lr, t_list_rand = \
@@ -214,6 +218,11 @@ def print_tpr_auc(coordinate_list, df_merged, avg_name, avg_no_snn_name, out_nam
 
         r_thresh, r_auc = find_thresholds(one_set, r_auc, 'random_prob', 'blank', 'roc')
 
+        num_cases = one_set[one_set['PrimaryPhenotype'] == 1].shape[0]
+        num_controls = one_set[one_set['PrimaryPhenotype'] == 0].shape[0]
+        random_pr = num_cases / (float(num_cases) + float(num_controls))  # in Python3, it produces a float anyways
+        r_pr_auc.append(random_pr)
+
     print("Using SNN: Avg. ROC AUC: %.5f" % (np.mean(c_list)))
     print("Using RF: Avg. ROC AUC: %.5f" % (np.mean(rf_list)))
     print("Using SVM: Avg. ROC AUC: %.5f" % (np.mean(svm_list)))
@@ -222,6 +231,22 @@ def print_tpr_auc(coordinate_list, df_merged, avg_name, avg_no_snn_name, out_nam
     print("Using avg. ensemble - SNN: Avg. ROC AUC: %.5f" % (np.mean(e_no_snn_list)))
     print("Random ROC AUC: %.5f:" % (np.mean(r_auc)))
     print("\n")
+
+    print("Calculating 95% confidence intervals for ROC AUC:")
+    get_confidence_interval(c_list, rf_list, svm_list, log_list, e_list, e_no_snn_list,
+                            r_auc)
+    snn_z = random_z_score(c_list, r_auc)
+    rf_z = random_z_score(rf_list, r_auc)
+    svm_z = random_z_score(svm_list, r_auc)
+    log_z = random_z_score(log_list, r_auc)
+    e_z = random_z_score(e_list, r_auc)
+    e_ns_z = random_z_score(e_no_snn_list, r_auc)
+    print("Z-score for difference of SNN and Random: %.5f" % snn_z)
+    print("Z-score for difference of RF and Random: %.5f" % rf_z)
+    print("Z-score for difference of SVM and Random: %.5f" % svm_z)
+    print("Z-score for difference of LR and Random: %.5f" % log_z)
+    print("Z-score for difference of Ensemble and Random: %.5f" % e_z)
+    print("Z-score for difference of Ensemble - SNN and Random: %.5f" % e_ns_z)
 
     # TPR at FPR < 0.01
     print("Using SNN: Avg. TPR < 0.01: %.5f" % (np.mean(t_list_snn)))
@@ -236,17 +261,83 @@ def print_tpr_auc(coordinate_list, df_merged, avg_name, avg_no_snn_name, out_nam
     print("Calculating 95% confidence intervals of TPR at FPR < 0.01:")
     bar_df = get_confidence_interval(t_list_snn, t_list_rf, t_list_svm, t_list_lr, tpr_list_avg, tpr_list_no_snn_avg,
                                      t_list_rand)
+
+    snn_z = random_z_score(t_list_snn, t_list_rand)
+    rf_z = random_z_score(t_list_rf, t_list_rand)
+    svm_z = random_z_score(t_list_svm, t_list_rand)
+    log_z = random_z_score(t_list_lr, t_list_rand)
+    e_z = random_z_score(tpr_list_avg, t_list_rand)
+    e_ns_z = random_z_score(tpr_list_no_snn_avg, t_list_rand)
+    print("TPR at FPR < 0.01:")
+    print("Z-score for difference of SNN and Random: %.5f" % snn_z)
+    print("Z-score for difference of RF and Random: %.5f" % rf_z)
+    print("Z-score for difference of SVM and Random: %.5f" % svm_z)
+    print("Z-score for difference of LR and Random: %.5f" % log_z)
+    print("Z-score for difference of Ensemble and Random: %.5f" % e_z)
+    print("Z-score for difference of Ensemble - SNN and Random: %.5f" % e_ns_z)
+
     print("\n")
 
     # the RF curves AUC
-    print("Using PR SNN: Avg. TPR < 0.01: %.5f" % (np.mean(p_c_list)))
-    print("Using PR RF: Avg. ROC AUC: %.5f" % (np.mean(p_rf_list)))
-    print("Using PR SVM: Avg. PR AUC: %.5f" % (np.mean(p_svm_list)))
-    print("Using PR LR: Avg. ROC AUC: %.5f" % (np.mean(p_log_list)))
-    print("Using PR Ensemble: Avg. PR AUC: %.5f" % (np.mean(p_e_list)))
-    print("Using PR Ensemble - SNN: Avg. PR AUC: %.5f" % (np.mean(p_e_no_snn_list)))
+    print("Using SNN: Avg. PR AUC: %.5f" % (np.mean(p_c_list)))
+    print("Using RF: Avg. PR AUC: %.5f" % (np.mean(p_rf_list)))
+    print("Using SVM: Avg. PR AUC: %.5f" % (np.mean(p_svm_list)))
+    print("Using LR: Avg. PR AUC: %.5f" % (np.mean(p_log_list)))
+    print("Using Ensemble: Avg. PR AUC: %.5f" % (np.mean(p_e_list)))
+    print("Using Ensemble - SNN: Avg. PR AUC: %.5f" % (np.mean(p_e_no_snn_list)))
+
+    print("Calculating 95% confidence intervals for PR-AUC:")
+    get_confidence_interval(p_c_list, p_rf_list, p_svm_list, p_log_list, p_e_list, p_e_no_snn_list,
+                            r_pr_auc)
+    print("\n")
+
+    # TODO Calculate the z-score of taking the model's PR-AUC, subtracting random PR-AUC from it
+    # TODO what's happening with this missense
+    # something = pd.DataFrame(p_c_list)
+    # something.to_csv("CheckMissenseSNN", sep="\t", header=None)
+    snn_z = random_z_score(p_c_list, r_pr_auc)
+    rf_z = random_z_score(p_rf_list, r_pr_auc)
+    svm_z = random_z_score(p_svm_list, r_pr_auc)
+    log_z = random_z_score(p_log_list, r_pr_auc)
+    e_z = random_z_score(p_e_list, r_pr_auc)
+    e_ns_z = random_z_score(p_e_no_snn_list, r_pr_auc)
+
+    print("Z-score for difference of SNN and Random: %.5f" % snn_z)
+    print("Z-score for difference of RF and Random: %.5f" % rf_z)
+    print("Z-score for difference of SVM and Random: %.5f" % svm_z)
+    print("Z-score for difference of LR and Random: %.5f" % log_z)
+    print("Z-score for difference of Ensemble and Random: %.5f" % e_z)
+    print("Z-score for difference of Ensemble - SNN and Random: %.5f" % e_ns_z)
+    print("\n")
 
     return tpr_list_avg, tpr_list_no_snn_avg, bar_df
+
+
+def random_z_score(df, rand_pr_auc):
+    df = pd.DataFrame(df, columns=['PR_AUC_value'])
+    rand_df = pd.DataFrame(rand_pr_auc, columns=['PR_AUC_random'])
+    df_merge = pd.concat([df, rand_df], axis=1)
+
+    # # subtract random from non-random and assign to new column
+    # df_merge['diff'] = df_merge['PR_AUC_value'] - df_merge['PR_AUC_random']
+    # mean_diff = np.mean(df_merge['diff'])
+    # std_diff = np.std(df_merge['diff'])
+    # df_merge['z_score'] = (df_merge['diff'] - mean_diff) / std_diff
+    #
+    # # now get the mean of the z-scores for that model
+    # mean_z_score = np.mean(df_merge['z_score'])
+
+    # TODO some other way of doing it
+    mean_pr = np.mean(df_merge['PR_AUC_value'])
+    mean_rand_pr = np.mean(df_merge['PR_AUC_random'])
+    var_pr = np.var(df_merge['PR_AUC_value'])
+    var_rand_pr = np.var(df_merge['PR_AUC_random'])
+
+    print("Variance of model: %.5f" % var_pr)
+
+    z_score = (mean_pr - mean_rand_pr) / (np.sqrt((var_pr + var_rand_pr)))
+
+    return z_score
 
 
 def processing(custom_file, rf_file, svm_file, log_file, out_name):
